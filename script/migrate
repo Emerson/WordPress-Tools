@@ -1,0 +1,91 @@
+#!/usr/bin/env ruby
+
+# TODO - rewrite this horrible code...
+
+if ARGV.empty? || ARGV.length < 3
+  puts "\nWORDPRESS MIGRATION\n"
+  puts "=======================\n"
+  puts "Does a find-and-replace within the database defined within wp-config.php.\n\n"
+  puts "\nUSAGE\n"
+  puts "=======================\n"
+  puts "ruby script/migrate <www.current-url.com> <www.new-url.com> </path/to/wp-config.php>\n\n"
+end
+
+old_domain = ARGV[0]
+new_domain = ARGV[1]
+path_to_config = ARGV[2]
+
+unless FileTest.exists?(path_to_config)
+  puts "\n The \"#{path_to_config}\" file does not exists.\n\n"
+  abort
+end
+
+db_name = false
+db_user = false
+db_pass = false
+db_host = false
+
+counter = 1
+config = File.new(path_to_config, "r")
+while(line = config.gets)
+  # User
+  if(line =~ /DB_USER(\'|\"),\s+/)
+    matcher = /(\'|\")DB_USER(\'|\"),\s+(\"|\')(.+)(\"|\')/
+    db_user = line.match(matcher)[4]
+  end
+  # Database Name
+  if(line =~ /DB_NAME(\'|\"),\s+/)
+    matcher = /(\'|\")DB_NAME(\'|\"),\s+(\"|\')(.+)(\"|\')/
+    db_name = line.match(matcher)[4]
+  end
+  # Password
+  if(line =~ /DB_PASSWORD(\'|\"),\s+/)
+    matcher = /(\'|\")DB_PASSWORD(\'|\"),\s+(\"|\')(.+)(\"|\')/
+    db_pass = line.match(matcher)[4]
+  end
+  # Host
+  if(line =~ /DB_HOST(\'|\"),\s+/)
+    matcher = /(\'|\")DB_HOST(\'|\"),\s+(\"|\')(.+)(\"|\')/
+    db_host = line.match(matcher)[4]
+  end
+  counter = counter + 1
+end
+
+unless db_name
+  puts "There was a problem getting the dataname"
+  abort
+end
+
+unless db_user
+  puts "There was a problem getting the username"
+  abort
+end
+
+unless db_pass
+  puts "There was a problem getting the password"
+  abort
+end
+
+puts "\nDATABASE CREDENTIALS"
+puts "====================\n"
+puts "db_name: #{db_name}"
+puts "db_user: #{db_user}"
+puts "db_pass: #{db_pass}"
+if db_host
+  puts "db_host: #{db_host}"
+end
+puts "\n\n"
+
+options_query = "USE #{db_name}; UPDATE wp_options SET option_value = replace(option_value, '#{old_domain}', '#{new_domain}') WHERE option_name = 'home' OR option_name = 'siteurl';"
+posts_guid    = "USE #{db_name}; UPDATE wp_posts SET guid = replace(guid, '#{old_domain}','#{new_domain}');"
+posts_content = "USE #{db_name}; UPDATE wp_posts SET post_content = replace(post_content, '#{old_domain}', '#{new_domain}');"
+posts_meta    = "USE #{db_name}; UPDATE wp_postmeta SET meta_value = replace(meta_value, '#{old_domain}', '#{new_domain}');"
+
+`mysql --user=#{db_user} --password=#{db_pass} -e "#{options_query}"`
+`mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_guid}"`
+`mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_content}"`
+`mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_meta}"`
+
+puts "\nFINISHED\n"
+puts "=============\n"
+puts "Check your install and make sure everything is alight.\n\n"
