@@ -2,6 +2,9 @@
 
 # TODO - rewrite this horrible code...
 
+# If using MAMP, chances are that you need to run the code below.
+# sudo ln -s /Applications/MAMP/tmp/mysql/mysql.sock /tmp/mysql.sock
+
 if ARGV.empty? || ARGV.length < 3
   puts "\nWORDPRESS MIGRATION\n"
   puts "=======================\n"
