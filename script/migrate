@@ -11,12 +11,13 @@ if ARGV.empty? || ARGV.length < 3
   puts "Does a find-and-replace within the database defined within wp-config.php.\n\n"
   puts "\nUSAGE\n"
   puts "=======================\n"
-  puts "ruby script/migrate <www.current-url.com> <www.new-url.com> </path/to/wp-config.php>\n\n"
+  puts "ruby script/migrate <www.current-url.com> <www.new-url.com> </path/to/wp-config.php> <socket=/Applications/MAMP/tmp/mysql/mysql.sock>\n\n"
 end
 
 old_domain = ARGV[0]
 new_domain = ARGV[1]
 path_to_config = ARGV[2]
+socket = ARGV[3] unless ARGV[3].nil?
 
 unless FileTest.exists?(path_to_config)
   puts "\n The \"#{path_to_config}\" file does not exists.\n\n"
@@ -77,17 +78,33 @@ puts "db_pass: #{db_pass}"
 if db_host
   puts "db_host: #{db_host}"
 end
+if socket
+  puts "socket: #{socket}"
+end
 puts "\n\n"
 
-options_query = "USE #{db_name}; UPDATE wp_options SET option_value = replace(option_value, '#{old_domain}', '#{new_domain}') WHERE option_name = 'home' OR option_name = 'siteurl';"
-posts_guid    = "USE #{db_name}; UPDATE wp_posts SET guid = replace(guid, '#{old_domain}','#{new_domain}');"
-posts_content = "USE #{db_name}; UPDATE wp_posts SET post_content = replace(post_content, '#{old_domain}', '#{new_domain}');"
-posts_meta    = "USE #{db_name}; UPDATE wp_postmeta SET meta_value = replace(meta_value, '#{old_domain}', '#{new_domain}');"
 
-`mysql --user=#{db_user} --password=#{db_pass} -e "#{options_query}"`
-`mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_guid}"`
-`mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_content}"`
-`mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_meta}"`
+# Queries
+queries = [
+  # Options
+  "USE #{db_name}; UPDATE wp_options SET option_value = replace(option_value, '#{old_domain}', '#{new_domain}') WHERE option_name = 'home' OR option_name = 'siteurl';",
+  # Posts GUID
+  "USE #{db_name}; UPDATE wp_posts SET guid = replace(guid, '#{old_domain}','#{new_domain}');",
+  # Posts Content
+  "USE #{db_name}; UPDATE wp_posts SET post_content = replace(post_content, '#{old_domain}', '#{new_domain}');",
+  # Posts Meta
+  "USE #{db_name}; UPDATE wp_postmeta SET meta_value = replace(meta_value, '#{old_domain}', '#{new_domain}');"
+]
+
+# Run each query
+queries.each do |query|
+  `mysql --user=#{db_user} --password=#{db_pass} #{socket if socket} -e`
+end
+
+# `mysql --user=#{db_user} --password=#{db_pass} -e "#{options_query}"`
+# `mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_guid}"`
+# `mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_content}"`
+# `mysql --user=#{db_user} --password=#{db_pass} -e "#{posts_meta}"`
 
 puts "\nFINISHED\n"
 puts "=============\n"
